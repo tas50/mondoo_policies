@@ -1,0 +1,78 @@
+# Read more about the policy structure at https://mondoo.com/docs/platform/policies/overview
+policies:
+  - uid: chef-infra-server
+    name: Chef Infra Server Policy
+    version: "1.0.0"
+    authors:
+      - name: Tim Smith
+        email: tim@mondoo.com
+    specs:
+      - asset_filter:
+          query: |
+            platform.family.contains(_ == 'unix')
+            file("/opt/opscode/").exists
+        scoring_queries:
+          etc-opscode-directory-permissions:
+          chef-server-rb-permissions:
+          non-eol-infra-server:
+queries:
+  - uid: etc-opscode-directory-permissions
+    title: Ensure /etc/opscode/ is owned by root:root with 755 permissions
+    query: |
+      file("/etc/opscode") {
+        user.name == 'root'
+        group.name == 'root'
+        permissions.user_readable == true
+        permissions.user_writeable == true
+        permissions.user_executable == true
+        permissions.group_readable == true
+        permissions.group_writeable == false
+        permissions.group_executable == true
+        permissions.other_readable == true
+        permissions.other_writeable == false
+        permissions.other_executable == true
+      }
+    docs:
+      desc: |
+        The /etc/opscode directory contains sensitive files configuring Chef Infra Server should not be world writeable
+      remediation: |
+        Run the following commands to set proper permissions on your /etc/opscode directory:
+
+        ```
+        chown root:root /etc/opscode
+        chmod 755 /etc/opscode
+        ```
+  - uid: chef-server-rb-permissions
+    title: Ensure /etc/opscode/chef-server.rb is owned by root:root with 640 permissions
+    query: |
+      file("/etc/opscode/chef-server.rb") {
+        user.name == 'root'
+        group.name == 'root'
+        permissions.user_readable == true
+        permissions.user_writeable == true
+        permissions.user_executable == false
+        permissions.group_readable == true
+        permissions.group_writeable == false
+        permissions.group_executable == false
+        permissions.other_readable == false
+        permissions.other_writeable == false
+        permissions.other_executable == false
+      }
+    docs:
+      desc: The /etc/opscode/chef-server.rb configuration file contains sensitive Infra Server configuration information. It should be owned by root:root and permissions should be set to 640.
+      remediation: |
+        Run the following commands to set proper permissions on your /etc/opscode/chef-server.rb file:
+
+        ```
+        chown root:root /etc/opscode/chef-server.rb
+        chmod 640 /etc/opscode/chef-server.rb
+        ```
+  - uid: non-eol-infra-server
+    title: Ensure a non-EOL Chef Infra Server release is used
+    query: |
+      command("chef-server-ctl version") {
+        stdout == /^(14|15|16).*/
+      }
+    docs:
+      desc: Only the current major release of Chef Infra Server is supported. Prior releases do not receive security updates and should not be used in production environments.
+      remediation: Upgrade to a non-EOL release of Chef Infra Server. Note that this will require downtime for component upgrade processes.
