@@ -15,6 +15,8 @@ policies:
           etc-opscode-directory-permissions:
           chef-server-rb-permissions:
           non-eol-infra-server:
+          eol-reporting-addon:
+          eol_push-jobs-addon:
 queries:
   - uid: etc-opscode-directory-permissions
     title: Ensure /etc/opscode/ is owned by root:root with 755 permissions
@@ -76,3 +78,19 @@ queries:
     docs:
       desc: Only the current major release of Chef Infra Server is supported. Prior releases do not receive security updates and should not be used in production environments.
       remediation: Upgrade to a non-EOL release of Chef Infra Server. Note that this will require downtime for component upgrade processes.
+  - uid: eol-reporting-addon
+    title: Ensure EOL Reporting add-on package is not installed
+    query: |
+      package("opscode-reporting").installed == false
+    docs:
+      desc: The Opscode Reporting add-on for Infra Server is EOL and no longer receives security updates. 
+      remediation: Uninstall the Reporting package and run `chef-server-ctl reconfigure`
+  - uid: eol_push-jobs-addon
+    title: Ensure EOL Push Jobs Server add-on package is not installed
+    query: |
+      package("opscode-push-jobs-server").installed == false
+    docs:
+      desc: Only the current major release of Chef Infra Server is supported. Prior releases do not receive security updates and should not be used in production environments.
+      remediation: Uninstall the Push Jobs package and run `chef-server-ctl reconfigure`
+
+      
