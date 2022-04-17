@@ -16,7 +16,14 @@ policies:
           chef-server-rb-permissions:
           non-eol-infra-server:
           eol-reporting-addon:
-          eol_push-jobs-addon:
+          eol-push-jobs-addon:
+          eol-analytics-addon:
+          eol-ha-addon:
+          pivotal-pem-permissions:
+          webui-pem-permissions:
+          secure-tls-only:
+          secrets-file-permissions:
+          disable-insecure-addon-compat:
 queries:
   - uid: etc-opscode-directory-permissions
     title: Ensure /etc/opscode/ is owned by root:root with 755 permissions
@@ -43,6 +50,84 @@ queries:
         ```
         chown root:root /etc/opscode
         chmod 755 /etc/opscode
+        ```
+  - uid: pivotal-pem-permissions
+    title: Ensure /etc/opscode/pivotal.pem is owned by opscode:root with 600 permissions
+    query: |
+      file("/etc/opscode/pivotal.pem") {
+        user.name == 'opscode'
+        group.name == 'root'
+        permissions.user_readable == true
+        permissions.user_writeable == true
+        permissions.user_executable == false
+        permissions.group_readable == false
+        permissions.group_writeable == false
+        permissions.group_executable == false
+        permissions.other_readable == false
+        permissions.other_writeable == false
+        permissions.other_executable == false
+      }
+    docs:
+      desc: |
+        The /etc/opscode/pivotal.pem file gives super admin privileges on the Infra Server and should be properly secured.
+      remediation: |
+        Run the following commands to set proper permissions on your /etc/opscode/pivotal.pem file:
+
+        ```
+        chown opscode:root /etc/opscode/pivotal.pem
+        chmod 600 /etc/opscode/pivotal.pem
+        ```
+  - uid: secrets-file-permissions
+    title: Ensure /etc/opscode/private-chef-secrets.json is owned by root:root with 600 permissions
+    query: |
+      file("/etc/opscode/private-chef-secrets.json") {
+        user.name == 'root'
+        group.name == 'root'
+        permissions.user_readable == true
+        permissions.user_writeable == true
+        permissions.user_executable == false
+        permissions.group_readable == false
+        permissions.group_writeable == false
+        permissions.group_executable == false
+        permissions.other_readable == false
+        permissions.other_writeable == false
+        permissions.other_executable == false
+      }
+    docs:
+      desc: |
+        The /etc/opscode/private-chef-secrets.json stores all secrets for the running Infra Server configuration and should be properly secured.
+      remediation: |
+        Run the following commands to set proper permissions on your /etc/opscode/private-chef-secrets.json file:
+
+        ```
+        chown root:root /etc/opscode/private-chef-secrets.json
+        chmod 600 /etc/opscode/private-chef-secrets.json
+        ```
+  - uid: webui-pem-permissions
+    title: Ensure /etc/opscode/webui_priv.pem is owned by opscode:root with 600 permissions
+    query: |
+      file("/etc/opscode/webui_priv.pem") {
+        user.name == 'opscode'
+        group.name == 'root'
+        permissions.user_readable == true
+        permissions.user_writeable == true
+        permissions.user_executable == false
+        permissions.group_readable == false
+        permissions.group_writeable == false
+        permissions.group_executable == false
+        permissions.other_readable == false
+        permissions.other_writeable == false
+        permissions.other_executable == false
+      }
+    docs:
+      desc: |
+        The /etc/opscode/webui_priv.pem file gives super admin privileges on the Infra Server and should be properly secured.
+      remediation: |
+        Run the following commands to set proper permissions on your /etc/opscode/webui_priv.pem file:
+
+        ```
+        chown opscode:root /etc/opscode/webui_priv.pem
+        chmod 600 /etc/opscode/webui_priv.pem
         ```
   - uid: chef-server-rb-permissions
     title: Ensure /etc/opscode/chef-server.rb is owned by root:root with 640 permissions
@@ -72,9 +157,7 @@ queries:
   - uid: non-eol-infra-server
     title: Ensure a non-EOL Chef Infra Server release is used
     query: |
-      command("chef-server-ctl version") {
-        stdout == /^(14|15|16).*/
-      }
+      file("/opt/opscode/version-manifest.txt").content == /^chef-server (14|15|16|17)/
     docs:
       desc: Only the current major release of Chef Infra Server is supported. Prior releases do not receive security updates and should not be used in production environments.
       remediation: Upgrade to a non-EOL release of Chef Infra Server. Note that this will require downtime for component upgrade processes.
@@ -85,12 +168,41 @@ queries:
     docs:
       desc: The Opscode Reporting add-on for Infra Server is EOL and no longer receives security updates. 
       remediation: Uninstall the Reporting package and run `chef-server-ctl reconfigure`
-  - uid: eol_push-jobs-addon
+  - uid: eol-push-jobs-addon
     title: Ensure EOL Push Jobs Server add-on package is not installed
     query: |
       package("opscode-push-jobs-server").installed == false
     docs:
-      desc: Only the current major release of Chef Infra Server is supported. Prior releases do not receive security updates and should not be used in production environments.
-      remediation: Uninstall the Push Jobs package and run `chef-server-ctl reconfigure`
-
+      desc: Chef Push Jobs Server is EOL and no longer receives security updates.
+      remediation: Uninstall the Push Jobs Server package and run `chef-server-ctl reconfigure`
+  - uid: eol-analytics-addon
+    title: Ensure EOL Analytics add-on package is not installed
+    query: |
+      package("opscode-analytics").installed == false
+    docs:
+      desc: Opscode Analytics is EOL and no longer receives security updates.
+      remediation: Uninstall the Opscode Analytics package and run `chef-server-ctl reconfigure`
+  - uid: eol-ha-addon
+    title: Ensure EOL Chef HA add-on package is not installed
+    query: |
+      package("chef-ha").installed == false
+    docs:
+      desc: Chef HA is EOL and not longer receives security updates.
+      remediation: Uninstall the Chef HA package and run `chef-server-ctl reconfigure`
+  - uid: secure-tls-only
+    title: Ensure TLS versions before 1.2 are disabled
+    query: |
+      file("/var/opt/opscode/nginx/etc/chef_https_lb.conf").content.contains("ssl_protocols TLSv1.2;")
+    docs:
+      desc: Chef Infra Server should be configured to only support modern TLS versions (currently 1.2 only as 1.3 is not supported)
+      remediation: Upgrade to the latest releases of Infra Server where this becomes the default.
+  - uid: disable-insecure-addon-compat
+    title: Disable insecure_addon_compat feature
+    query: |
+      file("/etc/opscode/chef-server.rb").content.contains("insecure_addon_compat false")
+    docs:
+      desc: Chef Infra Server provides backwards compatibility for legacy Infra Server add-ons that require less secure secrets storage. All currently supported add-ons currently support secure secrets management.
+      remediation: Upgrade to Chef Manage 2.5+ and set `insecure_addon_compat false` in the `chef-server.rb` config.
+               
+        
       
